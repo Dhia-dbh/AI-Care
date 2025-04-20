@@ -79,7 +79,7 @@ export function TranscriptionProvider({ children }: { children: React.ReactNode 
   const resetTranscription = () => {
     stopTranscription()
     setTranscript("")
-    setAudioRecording(null)
+    // setAudioRecording(null)
   }
 
   // Audio recording functionality

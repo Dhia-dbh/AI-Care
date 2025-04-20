@@ -5,10 +5,10 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { useToast } from "@/components/ui/use-toast"
 import { usePatients } from "@/contexts/patient-context"
 import { useTranscription } from "@/contexts/transcription-context"
-import { useToast } from "@/hooks/use-toast"
-import { Check, FileAudio, Loader2, Mic, Save, Send, Square, Volume2 } from "lucide-react"
+import { FileAudio, Loader2, Mic, Save, Send, Square, Volume2 } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 
 interface NewSessionFormProps {
@@ -18,13 +18,14 @@ interface NewSessionFormProps {
 
 export function NewSessionForm({ patientId, onSessionComplete }: NewSessionFormProps) {
   const { toast } = useToast()
-
-  // No test toast needed anymore
   const { addSession } = usePatients()
   const {
+    isTranscribing,
     transcript,
     audioRecording,
     isRecordingAudio,
+    startTranscription,
+    stopTranscription,
     resetTranscription,
     startAudioRecording,
     stopAudioRecording,
@@ -34,25 +35,26 @@ export function NewSessionForm({ patientId, onSessionComplete }: NewSessionFormP
   const [sessionTitle, setSessionTitle] = useState("")
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false)
   const [sessionDuration, setSessionDuration] = useState(0)
+  const [timer, setTimer] = useState<NodeJS.Timeout | null>(null)
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const [showSendButton, setShowSendButton] = useState(false)
   const [isProcessingAudio, setIsProcessingAudio] = useState(false)
-  const [summary, setSummary] = useState<{
-    text: string;
-    keyPoints: string[];
-    prescriptions: string[]
-  } | null>(null)
-  const [showSummary, setShowSummary] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
 
   // Helper function to update transcript with custom text
   const updateTranscriptWithText = (text: string) => {
     // First reset the current transcript
     resetTranscription()
-
-    // Directly update the textarea content
-    // This is a hack for demo purposes since we don't have direct access to setTranscript
+    
+    // Then start a new transcription session
+    startTranscription()
+    
+    // Wait a bit and then stop it to prevent the mock data from appearing
     setTimeout(() => {
+      stopTranscription()
+      
+      // Directly update the textarea content
+      // This is a hack for demo purposes since we don't have direct access to setTranscript
       const transcriptElement = document.getElementById('transcript') as HTMLTextAreaElement
       if (transcriptElement) {
         transcriptElement.value = text
@@ -60,31 +62,13 @@ export function NewSessionForm({ patientId, onSessionComplete }: NewSessionFormP
     }, 100)
   }
 
-  // Function to clear the transcript
-  const handleClearTranscript = () => {
-    resetTranscription()
-    setShowSendButton(true);
-
-    // Also clear the textarea directly to ensure it's empty
-    setTimeout(() => {
-      const transcriptElement = document.getElementById('transcript') as HTMLTextAreaElement
-      if (transcriptElement) {
-        transcriptElement.value = ""
+  useEffect(() => {
+    return () => {
+      if (timer) {
+        clearInterval(timer)
       }
-    }, 100)
-
-    console.log("Showing toast notification")
-    toast({
-      title: "Transcript Cleared",
-      description: "The transcript has been cleared.",
-      variant: "default",
-    })
-
-    // Also show an alert for testing
-    alert("Transcript cleared!")
-  }
-
-  // No timer cleanup needed anymore
+    }
+  }, [timer])
 
   // Create URL for audio blob when recording is available
   useEffect(() => {
@@ -105,15 +89,42 @@ export function NewSessionForm({ patientId, onSessionComplete }: NewSessionFormP
       setShowSendButton(false)
     }
 
-    // Cleanup function to revoke URL when component unmounts or audioRecording changes
+    // Cleanup function to revoke URL when component unmounts
     return () => {
       if (audioUrl) {
         URL.revokeObjectURL(audioUrl)
       }
     }
-  }, [audioRecording])
+  }, [audioRecording, audioUrl])
 
-  // We'll keep the session duration state for the saved session data
+  const handleStartTranscription = () => {
+    startTranscription()
+
+    const interval = setInterval(() => {
+      setSessionDuration((prev) => prev + 1)
+    }, 60000) // Update every minute
+
+    setTimer(interval)
+
+    toast({
+      title: "Transcription Started",
+      description: "The session is now being recorded and transcribed.",
+    })
+  }
+
+  const handleStopTranscription = () => {
+    stopTranscription()
+
+    if (timer) {
+      clearInterval(timer)
+      setTimer(null)
+    }
+
+    toast({
+      title: "Transcription Stopped",
+      description: "The session recording has been paused.",
+    })
+  }
 
   // Audio recording handlers
   const handleStartAudioRecording = async () => {
@@ -183,7 +194,7 @@ export function NewSessionForm({ patientId, onSessionComplete }: NewSessionFormP
       updateTranscriptWithText(transcriptionText)
 
       toast({
-        title: "TransFinicription Complete",
+        title: "Transcription Complete",
         description: "Audio has been successfully transcribed.",
       })
     } catch (error) {
@@ -221,45 +232,11 @@ export function NewSessionForm({ patientId, onSessionComplete }: NewSessionFormP
     }
 
     setIsGeneratingSummary(true)
-    setShowSummary(false) // Hide any previous summary while generating
 
     try {
       // In a real app, this would call an LLM to generate a summary
-      const generatedSummary = await generateSummary(currentTranscript)
+      const summary = await generateSummary(currentTranscript)
 
-      // Store the summary in state
-      setSummary(generatedSummary)
-
-      // Show the summary
-      setShowSummary(true)
-
-      toast({
-        title: "Summary Generated",
-        description: "The session has been summarized successfully.",
-      })
-
-      // Don't save the session or reset the form yet - let the user review the summary first
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to generate summary. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsGeneratingSummary(false)
-    }
-  }
-
-  // Function to save the session after reviewing the summary
-  const handleSaveSession = () => {
-    if (!summary || !sessionTitle) return
-
-    // Get the transcript from the textarea
-    const transcriptElement = document.getElementById('transcript') as HTMLTextAreaElement
-    const currentTranscript = transcriptElement ? transcriptElement.value : transcript
-
-    try {
-      // Add the session to the patient's record
       addSession(patientId, {
         id: crypto.randomUUID(),
         title: sessionTitle,
@@ -273,16 +250,14 @@ export function NewSessionForm({ patientId, onSessionComplete }: NewSessionFormP
       })
 
       toast({
-        title: "Session Saved",
-        description: "The session has been saved successfully.",
+        title: "Session Completed",
+        description: "The session has been saved and summarized successfully.",
       })
 
       // Reset the form
       setSessionTitle("")
       setSessionDuration(0)
       resetTranscription()
-      setSummary(null)
-      setShowSummary(false)
 
       // Clean up audio URL and reset send button state
       if (audioUrl) {
@@ -295,9 +270,11 @@ export function NewSessionForm({ patientId, onSessionComplete }: NewSessionFormP
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to save the session. Please try again.",
+        description: "Failed to generate summary. Please try again.",
         variant: "destructive",
       })
+    } finally {
+      setIsGeneratingSummary(false)
     }
   }
 
@@ -401,52 +378,14 @@ export function NewSessionForm({ patientId, onSessionComplete }: NewSessionFormP
               This transcript is generated from the audio recording and may contain errors.
             </p>
           </div>
-
-          {/* Summary Display */}
-          {showSummary && summary && (
-            <div className="space-y-4 mt-6 p-4 border rounded-md bg-muted/50">
-              <div>
-                <h3 className="text-lg font-semibold mb-2">Summary</h3>
-                <p className="text-sm">{summary.text}</p>
-              </div>
-
-              <div>
-                <h4 className="font-medium mb-1">Key Points</h4>
-                <ul className="list-disc pl-5 space-y-1">
-                  {summary.keyPoints.map((point, index) => (
-                    <li key={index} className="text-sm">{point}</li>
-                  ))}
-                </ul>
-              </div>
-
-              {summary.prescriptions.length > 0 && (
-                <div>
-                  <h4 className="font-medium mb-1">Prescriptions</h4>
-                  <ul className="list-disc pl-5 space-y-1">
-                    {summary.prescriptions.map((prescription, index) => (
-                      <li key={index} className="text-sm">{prescription}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              <Button
-                onClick={handleSaveSession}
-                className="w-full mt-2 flex items-center justify-center gap-2"
-              >
-                <Check className="h-4 w-4" />
-                Save Session
-              </Button>
-            </div>
-          )}
         </CardContent>
         <CardFooter className="flex justify-between">
-          <Button variant="outline" onClick={handleClearTranscript}>
+          <Button variant="outline" onClick={resetTranscription}>
             Clear Transcript
           </Button>
           <Button
             onClick={handleFinishSession}
-            disabled={isGeneratingSummary || showSummary}
+            disabled={isGeneratingSummary}
             className="flex items-center gap-2"
           >
             {isGeneratingSummary ? (
