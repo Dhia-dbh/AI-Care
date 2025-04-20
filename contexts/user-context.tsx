@@ -2,8 +2,8 @@
 
 import type React from "react"
 
-import { createContext, useContext, useState } from "react"
 import { useRouter } from "next/navigation"
+import { createContext, useContext, useState } from "react"
 
 type User = {
   name: string
@@ -22,7 +22,7 @@ const UserContext = createContext<UserContextType | undefined>(undefined)
 
 // Mock user data
 const mockUser: User = {
-  name: "Dr. Sarah Johnson",
+  name: "Dr. Samir kchok",
   email: "sarah.johnson@example.com",
   specialty: "Family Medicine",
   bio: "Board-certified family physician with over 10 years of experience in primary care. Special interests include preventive medicine and chronic disease management.",

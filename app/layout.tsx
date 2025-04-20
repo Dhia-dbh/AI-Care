@@ -11,9 +11,9 @@ import "./globals.css"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata = {
-  title: "Doctor Assistant",
+  title: "AI-Care",
   description: "AI-powered tool for doctor-patient conversations",
-  generator: 'v0.dev'
+  generator: 'Sanboca'
 }
 
 export default function RootLayout({

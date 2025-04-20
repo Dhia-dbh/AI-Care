@@ -2,22 +2,20 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { VoiceCommands } from "@/components/ai/voice-commands"
+import { NotificationCenter } from "@/components/notifications/notification-center"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { ThemeToggle } from "@/components/theme-toggle"
-import { useUser } from "@/contexts/user-context"
-import { ActivitySquare, CalendarIcon, ChevronDown, FileText, Home, Menu, Settings, User, Users } from "lucide-react"
-import { NotificationCenter } from "@/components/notifications/notification-center"
-import { VoiceCommands } from "@/components/ai/voice-commands"
+import { UserDropdown } from "@/components/user-dropdown"
+import { ActivitySquare, CalendarIcon, FileText, Home, Menu, Settings, User, Users } from "lucide-react"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { useEffect, useState } from "react"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const { user } = useUser()
   const [isMobile, setIsMobile] = useState(false)
-  const [showNotifications, setShowNotifications] = useState(false)
 
   useEffect(() => {
     const checkMobile = () => {
@@ -65,9 +63,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       <Link
                         key={item.href}
                         href={item.href}
-                        className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                          isActive(item.href) ? "bg-primary text-primary-foreground" : "hover:bg-muted"
-                        }`}
+                        className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${isActive(item.href) ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                          }`}
                       >
                         <item.icon className="h-4 w-4" />
                         {item.label}
@@ -80,7 +77,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
             <Link href="/" className="flex items-center gap-2">
               <FileText className="h-6 w-6 text-primary" />
-              <span className="text-lg font-bold">Doctor Assistant</span>
+              <span className="text-lg font-bold">AI-Care</span>
             </Link>
           </div>
 
@@ -89,9 +86,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-2 text-sm font-medium transition-colors ${
-                  isActive(item.href) ? "text-primary" : "text-muted-foreground hover:text-foreground"
-                }`}
+                className={`flex items-center gap-2 text-sm font-medium transition-colors ${isActive(item.href) ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                  }`}
               >
                 <item.icon className="h-4 w-4" />
                 {item.label}
@@ -108,19 +104,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <VoiceCommands />
               <ThemeToggle />
 
-              <div className="relative">
-                <Button variant="ghost" size="sm" className="flex items-center gap-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-                    <User className="h-4 w-4 text-primary" />
-                  </div>
-                  {!isMobile && (
-                    <>
-                      <span className="text-sm font-medium">{user?.name || "Dr. User"}</span>
-                      <ChevronDown className="h-4 w-4" />
-                    </>
-                  )}
-                </Button>
-              </div>
+              <UserDropdown isMobile={isMobile} />
             </div>
           </div>
         </div>
