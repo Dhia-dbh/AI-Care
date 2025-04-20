@@ -21,6 +21,7 @@ type Session = {
   summary: string
   keyPoints: string[]
   prescriptions?: string[]
+  audioUrl?: string
 }
 
 type PatientContextType = {

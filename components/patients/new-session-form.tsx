@@ -8,8 +8,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/use-toast"
 import { usePatients } from "@/contexts/patient-context"
 import { useTranscription } from "@/contexts/transcription-context"
-import { Loader2, Mic, MicOff, Pause, Play, Save } from "lucide-react"
-import { useEffect, useState } from "react"
+import { FileAudio, Loader2, Mic, Save, Square, Volume2 } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
 
 interface NewSessionFormProps {
   patientId: string
@@ -19,13 +19,25 @@ interface NewSessionFormProps {
 export function NewSessionForm({ patientId, onSessionComplete }: NewSessionFormProps) {
   const { toast } = useToast()
   const { addSession } = usePatients()
-  const { isTranscribing, transcript, startTranscription, stopTranscription, resetTranscription, generateSummary } =
-    useTranscription()
+  const {
+    isTranscribing,
+    transcript,
+    audioRecording,
+    isRecordingAudio,
+    startTranscription,
+    stopTranscription,
+    resetTranscription,
+    startAudioRecording,
+    stopAudioRecording,
+    generateSummary
+  } = useTranscription()
 
   const [sessionTitle, setSessionTitle] = useState("")
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false)
   const [sessionDuration, setSessionDuration] = useState(0)
   const [timer, setTimer] = useState<NodeJS.Timeout | null>(null)
+  const [audioUrl, setAudioUrl] = useState<string | null>(null)
+  const audioRef = useRef<HTMLAudioElement>(null)
 
   useEffect(() => {
     return () => {
@@ -34,6 +46,27 @@ export function NewSessionForm({ patientId, onSessionComplete }: NewSessionFormP
       }
     }
   }, [timer])
+
+  // Create URL for audio blob when recording is available
+  useEffect(() => {
+    if (audioRecording) {
+      // Revoke previous URL to avoid memory leaks
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl)
+      }
+
+      // Create a new URL for the audio blob
+      const url = URL.createObjectURL(audioRecording)
+      setAudioUrl(url)
+    }
+
+    // Cleanup function to revoke URL when component unmounts
+    return () => {
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl)
+      }
+    }
+  }, [audioRecording])
 
   const handleStartTranscription = () => {
     startTranscription()
@@ -62,6 +95,41 @@ export function NewSessionForm({ patientId, onSessionComplete }: NewSessionFormP
       title: "Transcription Stopped",
       description: "The session recording has been paused.",
     })
+  }
+
+  // Audio recording handlers
+  const handleStartAudioRecording = async () => {
+    try {
+      await startAudioRecording()
+
+      toast({
+        title: "Audio Recording Started",
+        description: "Recording audio from your microphone.",
+      })
+    } catch (error) {
+      toast({
+        title: "Recording Error",
+        description: "Could not access microphone. Please check permissions.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleStopAudioRecording = async () => {
+    try {
+      await stopAudioRecording()
+
+      toast({
+        title: "Audio Recording Stopped",
+        description: "Audio recording has been saved.",
+      })
+    } catch (error) {
+      toast({
+        title: "Recording Error",
+        description: "An error occurred while stopping the recording.",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleFinishSession = async () => {
@@ -98,6 +166,7 @@ export function NewSessionForm({ patientId, onSessionComplete }: NewSessionFormP
         summary: summary.text,
         keyPoints: summary.keyPoints,
         prescriptions: summary.prescriptions,
+        audioUrl: audioUrl || undefined,
       })
 
       toast({
@@ -109,6 +178,13 @@ export function NewSessionForm({ patientId, onSessionComplete }: NewSessionFormP
       setSessionTitle("")
       setSessionDuration(0)
       resetTranscription()
+
+      // Clean up audio URL
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl)
+        setAudioUrl(null)
+      }
+
       onSessionComplete()
     } catch (error) {
       toast({
@@ -138,7 +214,8 @@ export function NewSessionForm({ patientId, onSessionComplete }: NewSessionFormP
             />
           </div>
 
-          <div className="flex items-center justify-between rounded-md bg-muted p-4">
+          {/* Transcription Controls */}
+          {/* <div className="flex items-center justify-between rounded-md bg-muted p-4">
             <div className="flex items-center gap-2">
               {isTranscribing ? (
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-destructive text-destructive-foreground">
@@ -150,7 +227,7 @@ export function NewSessionForm({ patientId, onSessionComplete }: NewSessionFormP
                 </div>
               )}
               <div>
-                <p className="font-medium">{isTranscribing ? "Recording in progress" : "Recording paused"}</p>
+                <p className="font-medium">{isTranscribing ? "Transcription in progress" : "Transcription paused"}</p>
                 <p className="text-sm text-muted-foreground">
                   {sessionDuration > 0 ? `Duration: ${sessionDuration} min` : "Start recording to begin transcription"}
                 </p>
@@ -161,16 +238,62 @@ export function NewSessionForm({ patientId, onSessionComplete }: NewSessionFormP
               {isTranscribing ? (
                 <Button variant="outline" size="icon" onClick={handleStopTranscription} className="h-8 w-8">
                   <Pause className="h-4 w-4" />
-                  <span className="sr-only">Pause Recording</span>
+                  <span className="sr-only">Pause Transcription</span>
                 </Button>
               ) : (
                 <Button variant="default" size="icon" onClick={handleStartTranscription} className="h-8 w-8">
                   <Play className="h-4 w-4" />
-                  <span className="sr-only">Start Recording</span>
+                  <span className="sr-only">Start Transcription</span>
+                </Button>
+              )}
+            </div>
+          </div> */}
+
+          {/* Audio Recording Controls */}
+          <div className="flex items-center justify-between rounded-md bg-muted p-4">
+            <div className="flex items-center gap-2">
+              {isRecordingAudio ? (
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-500 text-white">
+                  <Mic className="h-4 w-4 animate-pulse" />
+                </div>
+              ) : (
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted-foreground/20 text-muted-foreground">
+                  <FileAudio className="h-4 w-4" />
+                </div>
+              )}
+              <div>
+                <p className="font-medium">{isRecordingAudio ? "Audio recording in progress" : "Audio recording paused"}</p>
+                <p className="text-sm text-muted-foreground">
+                  {audioRecording ? "Audio recording saved" : "Start recording to capture audio"}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              {isRecordingAudio ? (
+                <Button variant="outline" size="icon" onClick={handleStopAudioRecording} className="h-8 w-8">
+                  <Square className="h-4 w-4" color="red" />
+                  <span className="sr-only">Stop Audio Recording</span>
+                </Button>
+              ) : (
+                <Button variant="default" size="icon" onClick={handleStartAudioRecording} className="h-8 w-8">
+                  <Mic className="h-4 w-4" />
+                  <span className="sr-only">Start Audio Recording</span>
                 </Button>
               )}
             </div>
           </div>
+
+          {/* Audio Playback */}
+          {audioUrl && (
+            <div className="mt-4 rounded-md border p-4">
+              <div className="mb-2 flex items-center gap-2">
+                <Volume2 className="h-4 w-4" />
+                <p className="font-medium">Recorded Audio</p>
+              </div>
+              <audio ref={audioRef} src={audioUrl} controls className="w-full" />
+            </div>
+          )}
 
           {transcript && <div className="space-y-2">
             <Label htmlFor="transcript">Transcript</Label>

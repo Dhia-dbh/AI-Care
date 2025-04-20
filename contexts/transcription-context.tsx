@@ -2,14 +2,18 @@
 
 import type React from "react"
 
-import { createContext, useContext, useState } from "react"
+import { createContext, useContext, useRef, useState } from "react"
 
 type TranscriptionContextType = {
   isTranscribing: boolean
   transcript: string
+  audioRecording: Blob | null
+  isRecordingAudio: boolean
   startTranscription: () => void
   stopTranscription: () => void
   resetTranscription: () => void
+  startAudioRecording: () => void
+  stopAudioRecording: () => Promise<void>
   generateSummary: (transcript: string) => Promise<{
     text: string
     keyPoints: string[]
@@ -23,6 +27,12 @@ export function TranscriptionProvider({ children }: { children: React.ReactNode 
   const [isTranscribing, setIsTranscribing] = useState(false)
   const [transcript, setTranscript] = useState("")
   const [transcriptionInterval, setTranscriptionInterval] = useState<NodeJS.Timeout | null>(null)
+  const [audioRecording, setAudioRecording] = useState<Blob | null>(null)
+  const [isRecordingAudio, setIsRecordingAudio] = useState(false)
+
+  // References for audio recording
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
 
   // Mock transcription service
   const startTranscription = () => {
@@ -69,6 +79,64 @@ export function TranscriptionProvider({ children }: { children: React.ReactNode 
   const resetTranscription = () => {
     stopTranscription()
     setTranscript("")
+    setAudioRecording(null)
+  }
+
+  // Audio recording functionality
+  const startAudioRecording = async () => {
+    try {
+      // Reset any previous recordings
+      audioChunksRef.current = []
+      setAudioRecording(null)
+
+      // Request microphone access
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+
+      // Create a new MediaRecorder instance
+      const mediaRecorder = new MediaRecorder(stream)
+      mediaRecorderRef.current = mediaRecorder
+
+      // Set up event handlers
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data)
+        }
+      }
+
+      // Start recording
+      mediaRecorder.start()
+      setIsRecordingAudio(true)
+    } catch (error) {
+      console.error('Error starting audio recording:', error)
+      setIsRecordingAudio(false)
+    }
+  }
+
+  const stopAudioRecording = async () => {
+    return new Promise<void>((resolve) => {
+      if (!mediaRecorderRef.current || mediaRecorderRef.current.state === 'inactive') {
+        setIsRecordingAudio(false)
+        resolve()
+        return
+      }
+
+      // Set up the onstop handler to create the final audio blob
+      mediaRecorderRef.current.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' })
+        setAudioRecording(audioBlob)
+        setIsRecordingAudio(false)
+
+        // Stop all tracks in the stream
+        if (mediaRecorderRef.current && mediaRecorderRef.current.stream) {
+          mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop())
+        }
+
+        resolve()
+      }
+
+      // Stop the recording
+      mediaRecorderRef.current.stop()
+    })
   }
 
   // Mock LLM summary generation
@@ -95,9 +163,13 @@ export function TranscriptionProvider({ children }: { children: React.ReactNode 
       value={{
         isTranscribing,
         transcript,
+        audioRecording,
+        isRecordingAudio,
         startTranscription,
         stopTranscription,
         resetTranscription,
+        startAudioRecording,
+        stopAudioRecording,
         generateSummary,
       }}
     >
