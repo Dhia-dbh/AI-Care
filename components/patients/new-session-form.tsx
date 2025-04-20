@@ -48,7 +48,8 @@ export function NewSessionForm({ patientId, onSessionComplete }: NewSessionFormP
   // Helper function to update transcript with custom text
   const updateTranscriptWithText = (text: string) => {
     // First reset the current transcript
-    resetTranscription()
+    // We're commenting this out as it might be causing issues
+    // resetTranscription()
 
     // Directly update the textarea content
     // This is a hack for demo purposes since we don't have direct access to setTranscript
@@ -63,7 +64,7 @@ export function NewSessionForm({ patientId, onSessionComplete }: NewSessionFormP
   // Function to clear the transcript
   const handleClearTranscript = () => {
     resetTranscription()
-    setShowSendButton(true);
+    // Don't set showSendButton here as it can cause issues with the transcript
 
     // Also clear the textarea directly to ensure it's empty
     setTimeout(() => {
@@ -86,8 +87,15 @@ export function NewSessionForm({ patientId, onSessionComplete }: NewSessionFormP
 
   // No timer cleanup needed anymore
 
+  // Debug effect to monitor transcript changes
+  useEffect(() => {
+    console.log('Transcript changed:', transcript)
+  }, [transcript])
+
   // Create URL for audio blob when recording is available
   useEffect(() => {
+    console.log('audioRecording changed:', audioRecording ? 'exists' : 'null')
+
     if (audioRecording) {
       // Revoke previous URL to avoid memory leaks
       if (audioUrl) {
@@ -102,7 +110,8 @@ export function NewSessionForm({ patientId, onSessionComplete }: NewSessionFormP
       setShowSendButton(true)
     } else {
       // Hide the send button when there's no audio recording
-      setShowSendButton(false)
+      // We're commenting this out as it might be causing issues
+      // setShowSendButton(false)
     }
 
     // Cleanup function to revoke URL when component unmounts or audioRecording changes
@@ -118,7 +127,7 @@ export function NewSessionForm({ patientId, onSessionComplete }: NewSessionFormP
   // Audio recording handlers
   const handleStartAudioRecording = async () => {
     try {
-      await startAudioRecording()
+      startAudioRecording() // No need to await as it doesn't return a Promise
 
       toast({
         title: "Audio Recording Started",
@@ -152,6 +161,7 @@ export function NewSessionForm({ patientId, onSessionComplete }: NewSessionFormP
 
   // Handler for sending the audio file to the backend and getting a transcription
   const handleSendAudio = async () => {
+    console.log('handleSendAudio called')
     if (!audioRecording) {
       toast({
         title: "Error",
@@ -393,7 +403,7 @@ export function NewSessionForm({ patientId, onSessionComplete }: NewSessionFormP
             <Textarea
               id="transcript"
               placeholder="Transcript will appear here after processing the audio..."
-              value={transcript}
+              defaultValue={transcript}
               readOnly
               className="min-h-[200px] resize-none"
             />

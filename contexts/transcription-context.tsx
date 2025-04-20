@@ -77,6 +77,7 @@ export function TranscriptionProvider({ children }: { children: React.ReactNode 
   }
 
   const resetTranscription = () => {
+    console.log('resetTranscription called')
     stopTranscription()
     setTranscript("")
     // setAudioRecording(null)
